@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KIT工房 確定申告対応会計システム</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Encoding-japanese for CSV file encoding -->
+    <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
+    <!-- Supabase client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>📊 KIT工房 確定申告対応会計システム</h1>
+            <p class="subtitle">青色申告（複式簿記）65万円控除対応</p>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-tab="dashboard">📊 ダッシュボード</button>
+            <button class="nav-tab" data-tab="journal">📖 仕訳帳</button>
+            <button class="nav-tab" data-tab="quotations">📄 見積書</button>
+            <button class="nav-tab" data-tab="invoices">🧾 請求書</button>
+            <button class="nav-tab" data-tab="customers">👥 顧客管理</button>
+            <button class="nav-tab" data-tab="services">🔧 サービス管理</button>
+            <button class="nav-tab" data-tab="reports">📈 確定申告レポート</button>
+            <button class="nav-tab" data-tab="csv-import">📥 CSV一括インポート</button>
+        </nav>
+
+        <!-- Tab Contents -->
+        <main>
+            <!-- Dashboard Tab -->
+            <div id="dashboard" class="tab-content active">
+                <h2>📊 ダッシュボード</h2>
+                
+                <div class="summary-cards">
+                    <div class="summary-card card-revenue">
+                        <h3>💰 年間売上</h3>
+                        <p class="amount" id="total-revenue">¥0</p>
+                    </div>
+                    <div class="summary-card card-expense">
+                        <h3>📉 年間経費</h3>
+                        <p class="amount" id="total-expense">¥0</p>
+                    </div>
+                    <div class="summary-card card-profit">
+                        <h3>📊 年間利益</h3>
+                        <p class="amount" id="total-profit">¥0</p>
+                    </div>
+                    <div class="summary-card card-unpaid">
+                        <h3>⏳ 未払い請求書</h3>
+                        <p class="amount" id="unpaid-invoices">¥0</p>
+                    </div>
+                </div>
+
+                <div class="charts">
+                    <div class="chart-container">
+                        <h3>月別損益推移</h3>
+                        <canvas id="monthlyChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>経費内訳</h3>
+                        <canvas id="expenseChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="recent-entries">
+                    <h3>最近の仕訳</h3>
+                    <div id="recent-entries-list"></div>
+                </div>
+            </div>
+
+            <!-- Journal Entry Tab -->
+            <div id="journal" class="tab-content">
+                <h2>📖 仕訳帳（複式簿記）</h2>
+                
+                <div class="form-card">
+                    <h3>新しい仕訳を追加</h3>
+                    <form id="journal-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="entry-date">日付</label>
+                                <input type="date" id="entry-date" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="debit-account">借方科目</label>
+                                <select id="debit-account" required></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="debit-amount">借方金額</label>
+                                <input type="number" id="debit-amount" placeholder="0" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="credit-account">貸方科目</label>
+                                <select id="credit-account" required></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="credit-amount">貸方金額</label>
+                                <input type="number" id="credit-amount" placeholder="0" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="description">摘要</label>
+                            <input type="text" id="description" placeholder="取引の詳細" required>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">仕訳を追加</button>
+                    </form>
+                </div>
+
+                <div class="form-card">
+                    <h3>仕訳一覧</h3>
+                    <div class="filter-controls">
+                        <select id="journal-month-filter">
+                            <option value="">すべての月</option>
+                        </select>
+                    </div>
+                    <div id="journal-list"></div>
+                </div>
+            </div>
+
+            <!-- Quotations Tab -->
+            <div id="quotations" class="tab-content">
+                <h2>📄 見積書管理</h2>
+                
+                <div class="form-card">
+                    <h3>新しい見積書を作成</h3>
+                    <form id="quotation-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="quote-number">見積番号</label>
+                                <input type="text" id="quote-number" placeholder="Q-2025-001" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="quote-date">見積日</label>
+                                <input type="date" id="quote-date" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="quote-customer">顧客選択</label>
+                                <select id="quote-customer" required>
+                                    <option value="">顧客を選択...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="quote-expiry">有効期限（90日後）</label>
+                                <input type="date" id="quote-expiry" readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>明細</label>
+                            <div id="quote-items"></div>
+                            <button type="button" class="btn btn-secondary" onclick="addQuoteItem()">+ 明細を追加</button>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>小計</label>
+                                <input type="text" id="quote-subtotal" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>消費税（10%）</label>
+                                <input type="text" id="quote-tax" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>合計</label>
+                                <input type="text" id="quote-total" readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">見積書を保存</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="form-card">
+                    <h3>見積書一覧</h3>
+                    <div id="quotation-list"></div>
+                </div>
+            </div>
+
+            <!-- Invoices Tab -->
+            <div id="invoices" class="tab-content">
+                <h2>🧾 請求書管理</h2>
+                
+                <div class="form-card">
+                    <h3>新しい請求書を作成</h3>
+                    <form id="invoice-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="invoice-number">請求番号</label>
+                                <input type="text" id="invoice-number" placeholder="I-2025-001" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="invoice-date">請求日</label>
+                                <input type="date" id="invoice-date" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="invoice-customer">顧客選択</label>
+                                <select id="invoice-customer" required>
+                                    <option value="">顧客を選択...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="invoice-due">支払期限（45日後）</label>
+                                <input type="date" id="invoice-due" readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>明細</label>
+                            <div id="invoice-items"></div>
+                            <button type="button" class="btn btn-secondary" onclick="addInvoiceItem()">+ 明細を追加</button>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>小計</label>
+                                <input type="text" id="invoice-subtotal" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>消費税（10%）</label>
+                                <input type="text" id="invoice-tax" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>合計</label>
+                                <input type="text" id="invoice-total" readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">請求書を保存</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="form-card">
+                    <h3>請求書一覧</h3>
+                    <div id="invoice-list"></div>
+                </div>
+            </div>
+
+            <!-- Customers Tab -->
+            <div id="customers" class="tab-content">
+                <h2>👥 顧客管理</h2>
+                
+                <div class="form-card">
+                    <h3>新しい顧客を登録</h3>
+                    <form id="customer-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="customer-name">顧客名</label>
+                                <input type="text" id="customer-name" placeholder="山田太郎" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="customer-company">会社名</label>
+                                <input type="text" id="customer-company" placeholder="株式会社サンプル">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="customer-address">住所</label>
+                            <input type="text" id="customer-address" placeholder="東京都〇〇区〇〇">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="customer-phone">電話番号</label>
+                                <input type="tel" id="customer-phone" placeholder="03-1234-5678">
+                            </div>
+                            <div class="form-group">
+                                <label for="customer-email">メールアドレス</label>
+                                <input type="email" id="customer-email" placeholder="example@example.com">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">顧客を登録</button>
+                    </form>
+                </div>
+
+                <div class="form-card">
+                    <h3>顧客一覧</h3>
+                    <div id="customer-list"></div>
+                </div>
+            </div>
+
+            <!-- Services Tab -->
+            <div id="services" class="tab-content">
+                <h2>🔧 サービス管理</h2>
+                
+                <div class="form-card">
+                    <h3>新しいサービスを登録</h3>
+                    <form id="service-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="service-name">サービス名</label>
+                                <input type="text" id="service-name" placeholder="ウェブサイト制作" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="service-category">カテゴリ</label>
+                                <select id="service-category" required>
+                                    <option value="ウェブ制作">ウェブ制作</option>
+                                    <option value="HP制作">HP制作</option>
+                                    <option value="音楽編集">音楽編集</option>
+                                    <option value="チラシ作成">チラシ作成</option>
+                                    <option value="動画編集">動画編集</option>
+                                    <option value="公式LINE">公式LINE作成</option>
+                                    <option value="Googleビジネス">Googleビジネス</option>
+                                    <option value="コンサル">コンサル</option>
+                                    <option value="その他">その他</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="service-price">単価</label>
+                                <input type="number" id="service-price" placeholder="50000" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="service-unit">単位</label>
+                                <input type="text" id="service-unit" placeholder="式" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="service-tax">消費税率</label>
+                                <select id="service-tax" required>
+                                    <option value="0.10">10%</option>
+                                    <option value="0.08">8%（軽減税率）</option>
+                                    <option value="0.00">0%（非課税）</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">サービスを登録</button>
+                    </form>
+                </div>
+
+                <div class="form-card">
+                    <h3>サービス一覧</h3>
+                    <div id="service-list"></div>
+                </div>
+            </div>
+
+            <!-- Reports Tab -->
+            <div id="reports" class="tab-content">
+                <h2>📈 確定申告レポート</h2>
+                
+                <div class="form-card">
+                    <h3>青色申告決算書（損益計算書）</h3>
+                    <div class="form-group">
+                        <label for="report-year">集計年度</label>
+                        <select id="report-year"></select>
+                        <button class="btn btn-primary" onclick="generateReport()">レポート生成</button>
+                    </div>
+                </div>
+
+                <div class="form-card" id="report-result" style="display: none;">
+                    <h3>確定申告書転記用データ</h3>
+                    <div class="report-section">
+                        <h4>📊 損益計算書</h4>
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>科目</th>
+                                    <th>金額</th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-income"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="report-section">
+                        <h4>📝 確定申告書への転記</h4>
+                        <div class="info-box">
+                            <p><strong>事業収入（売上高）：</strong><span id="tax-revenue"></span></p>
+                            <p><strong>必要経費合計：</strong><span id="tax-expense"></span></p>
+                            <p><strong>差引金額：</strong><span id="tax-net-income"></span></p>
+                            <p><strong>青色申告特別控除：</strong>¥650,000</p>
+                            <p><strong>所得金額：</strong><span id="tax-final-income"></span></p>
+                        </div>
+                    </div>
+
+                    <div class="report-section">
+                        <h4>🏦 科目別集計</h4>
+                        <div id="account-summary"></div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="btn btn-secondary" onclick="printReport()">🖨️ 印刷</button>
+                        <button class="btn btn-secondary" onclick="exportReportCSV()">📊 CSV出力</button>
+                    </div>
+
+                    <div class="info-box">
+                        <h4>📱 e-Tax申告ガイド</h4>
+                        <p>1. <a href="https://www.keisan.nta.go.jp/" target="_blank">国税庁 確定申告書等作成コーナー</a> にアクセス</p>
+                        <p>2. 「e-Taxで提出」を選択</p>
+                        <p>3. マイナンバーカードまたはID・パスワードでログイン</p>
+                        <p>4. 上記の転記用データを入力</p>
+                        <p>5. 電子申告で送信</p>
+                        <p><strong>✅ 電子申告により65万円控除が適用されます！</strong></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CSV Import Tab -->
+            <div id="csv-import" class="tab-content">
+                <h2>📥 CSV一括インポート</h2>
+                
+                <div class="form-card">
+                    <h3>あおぞら銀行 取引明細インポート</h3>
+                    
+                    <div class="info-box">
+                        <p><strong>💡 使い方：</strong></p>
+                        <p>1. あおぞら銀行のインターネットバンキングから取引明細CSVをダウンロード</p>
+                        <p>2. 下記のエリアにファイルをドラッグ&ドロップ、または選択</p>
+                        <p>3. 取引年度を指定して解析</p>
+                        <p>4. プレビューで科目を確認・修正</p>
+                        <p>5. 一括登録で仕訳帳に追加</p>
+                    </div>
+
+                    <div class="upload-area" id="csv-upload-area">
+                        <p>📁 CSVファイルをドラッグ&ドロップ</p>
+                        <p>または</p>
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('csv-file-input').click()">ファイルを選択</button>
+                        <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
+                    </div>
+
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label for="csv-year">取引年度</label>
+                        <input type="number" id="csv-year" placeholder="2025" min="2000" max="2100">
+                        <button class="btn btn-primary" onclick="parseCSV()" id="parse-csv-btn" disabled>CSVを解析</button>
+                    </div>
+                </div>
+
+                <div class="form-card" id="csv-preview" style="display: none;">
+                    <h3>プレビュー</h3>
+                    <p class="info-text">科目を確認・修正して、不要な取引はチェックを外してください。</p>
+                    <div style="overflow-x: auto;">
+                        <table class="data-table" id="csv-preview-table"></table>
+                    </div>
+                    <button class="btn btn-primary" onclick="importCSVData()">✅ 選択した取引を一括登録</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
