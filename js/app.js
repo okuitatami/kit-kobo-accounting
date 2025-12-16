@@ -924,7 +924,7 @@ async function displayQuotations() {
                 <br><span>合計: ¥${(quote.total || 0).toLocaleString()}</span>
             </div>
             <div class="data-item-actions">
-                <button class="btn btn-secondary" onclick="viewQuotePDF('${quote.id}')">PDF表示</button>
+                <button class="btn btn-secondary" onclick="viewQuotePDF('${quote.id}')">📄 印刷/PDF</button>
                 <button class="btn btn-success" onclick="convertToInvoice('${quote.id}')">請求書へ変換</button>
                 <button class="btn btn-danger" onclick="deleteQuotation('${quote.id}')">削除</button>
             </div>
@@ -1153,7 +1153,7 @@ async function displayInvoices() {
                 <br><span>合計: ¥${(invoice.total || 0).toLocaleString()}</span>
             </div>
             <div class="data-item-actions">
-                <button class="btn btn-secondary" onclick="viewInvoicePDF('${invoice.id}')">PDF表示</button>
+                <button class="btn btn-secondary" onclick="viewInvoicePDF('${invoice.id}')">📄 印刷/PDF</button>
                 ${invoice.status === 'unpaid' ? `<button class="btn btn-success" onclick="markAsPaid('${invoice.id}')">支払済にする</button>` : ''}
                 <button class="btn btn-danger" onclick="deleteInvoice('${invoice.id}')">削除</button>
             </div>
@@ -1634,10 +1634,10 @@ async function viewQuotePDF(id) {
         
         if (error) throw error;
         
-        generatePDF(quote, 'quote');
+        generatePrintableDocument(quote, 'quote');
     } catch (error) {
-        console.error('Error generating PDF:', error);
-        showNotification('PDF生成に失敗しました', 'error');
+        console.error('Error generating document:', error);
+        showNotification('帳票生成に失敗しました', 'error');
     }
 }
 
@@ -1657,121 +1657,223 @@ async function viewInvoicePDF(id) {
         
         if (error) throw error;
         
-        generatePDF(invoice, 'invoice');
+        generatePrintableDocument(invoice, 'invoice');
     } catch (error) {
-        console.error('Error generating PDF:', error);
-        showNotification('PDF生成に失敗しました', 'error');
+        console.error('Error generating document:', error);
+        showNotification('帳票生成に失敗しました', 'error');
     }
 }
 
-function generatePDF(data, type) {
-    // Check if jsPDF is available
-    if (typeof window.jspdf === 'undefined') {
-        showNotification('PDF生成ライブラリが読み込まれていません', 'error');
-        return;
-    }
-    
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    // Set Japanese font (Note: Basic jsPDF doesn't support Japanese. This is a placeholder)
-    // For production, you would need to add Japanese font support
-    
+function generatePrintableDocument(data, type) {
     const title = type === 'quote' ? '見積書' : '請求書';
     const number = type === 'quote' ? data.quote_number : data.invoice_number;
     const issueDate = type === 'quote' ? data.issue_date : data.issue_date;
+    const expiryOrDue = type === 'quote' ? data.expiry_date : data.due_date;
+    const expiryOrDueLabel = type === 'quote' ? '有効期限' : '支払期限';
     
-    // Title
-    doc.setFontSize(24);
-    doc.text(title, 105, 20, { align: 'center' });
+    // Create printable HTML
+    const printWindow = window.open('', '_blank');
     
-    // Document number and date
-    doc.setFontSize(12);
-    doc.text(`${type === 'quote' ? '見積番号' : '請求番号'}: ${number}`, 20, 40);
-    doc.text(`発行日: ${issueDate}`, 20, 48);
-    
-    if (type === 'quote') {
-        doc.text(`有効期限: ${data.expiry_date}`, 20, 56);
-    } else {
-        doc.text(`支払期限: ${data.due_date}`, 20, 56);
-    }
-    
-    // Company info
-    doc.setFontSize(10);
-    doc.text(COMPANY_INFO.name, 140, 40);
-    doc.text(COMPANY_INFO.representative, 140, 46);
-    doc.text(COMPANY_INFO.address, 140, 52);
-    doc.text(`TEL: ${COMPANY_INFO.phone}`, 140, 58);
-    
-    // Customer info
-    doc.setFontSize(12);
-    doc.text('お客様:', 20, 75);
-    doc.text(data.customers?.name || '', 20, 82);
-    if (data.customers?.company) {
-        doc.text(data.customers.company, 20, 89);
-    }
-    
-    // Items table
-    let yPos = 110;
-    doc.setFontSize(10);
-    doc.text('品目', 20, yPos);
-    doc.text('数量', 90, yPos);
-    doc.text('単価', 120, yPos);
-    doc.text('金額', 160, yPos);
-    
-    yPos += 5;
-    doc.line(20, yPos, 190, yPos);
-    
-    yPos += 8;
-    
+    let itemsHTML = '';
     if (data.items && Array.isArray(data.items)) {
         data.items.forEach(item => {
-            doc.text(item.description || '', 20, yPos);
-            doc.text(String(item.quantity || 0), 90, yPos);
-            doc.text(`¥${(item.price || 0).toLocaleString()}`, 120, yPos);
-            doc.text(`¥${((item.quantity * item.price) || 0).toLocaleString()}`, 160, yPos);
-            yPos += 8;
+            const amount = (item.quantity || 0) * (item.price || 0);
+            itemsHTML += `
+                <tr>
+                    <td>${item.description || ''}</td>
+                    <td style="text-align: center;">${item.quantity || 0}</td>
+                    <td style="text-align: right;">¥${(item.price || 0).toLocaleString()}</td>
+                    <td style="text-align: right;">¥${amount.toLocaleString()}</td>
+                </tr>
+            `;
         });
     }
     
-    yPos += 5;
-    doc.line(20, yPos, 190, yPos);
-    
-    // Totals
-    yPos += 10;
-    doc.text('小計:', 130, yPos);
-    doc.text(`¥${(data.subtotal || 0).toLocaleString()}`, 160, yPos);
-    
-    yPos += 8;
-    doc.text('消費税:', 130, yPos);
-    doc.text(`¥${(data.tax || 0).toLocaleString()}`, 160, yPos);
-    
-    yPos += 8;
-    doc.setFontSize(14);
-    doc.text('合計:', 130, yPos);
-    doc.text(`¥${(data.total || 0).toLocaleString()}`, 160, yPos);
-    
-    // Bank info for invoices
+    let bankInfoHTML = '';
     if (type === 'invoice') {
-        yPos += 15;
-        doc.setFontSize(10);
-        doc.text('振込先:', 20, yPos);
-        yPos += 6;
-        doc.text(`${COMPANY_INFO.bank.name}`, 20, yPos);
-        yPos += 6;
-        doc.text(`${COMPANY_INFO.bank.branch}`, 20, yPos);
-        yPos += 6;
-        doc.text(`口座番号: ${COMPANY_INFO.bank.accountNumber}`, 20, yPos);
-        yPos += 6;
-        doc.text(`名義: ${COMPANY_INFO.bank.accountName}`, 20, yPos);
-        yPos += 10;
-        doc.setFontSize(8);
-        doc.text('※振込手数料は振込人の負担とさせていただきます', 20, yPos);
+        bankInfoHTML = `
+            <div style="margin-top: 40px; padding: 20px; background: #f8f9fa; border-left: 4px solid #667eea;">
+                <h3 style="margin-bottom: 15px; color: #667eea;">お振込先</h3>
+                <p style="margin: 5px 0;"><strong>銀行名:</strong> ${COMPANY_INFO.bank.name}</p>
+                <p style="margin: 5px 0;"><strong>支店名:</strong> ${COMPANY_INFO.bank.branch}</p>
+                <p style="margin: 5px 0;"><strong>口座番号:</strong> ${COMPANY_INFO.bank.accountNumber}</p>
+                <p style="margin: 5px 0;"><strong>名義:</strong> ${COMPANY_INFO.bank.accountName}</p>
+                <p style="margin-top: 15px; font-size: 0.9em; color: #666;">※振込手数料は振込人の負担とさせていただきます</p>
+            </div>
+        `;
     }
     
-    // Save PDF
-    doc.save(`${number}.pdf`);
-    showNotification('PDFを生成しました', 'success');
+    const html = `
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="UTF-8">
+            <title>${title} - ${number}</title>
+            <style>
+                @media print {
+                    body { margin: 0; }
+                    .no-print { display: none; }
+                    @page { margin: 20mm; }
+                }
+                body {
+                    font-family: 'MS Gothic', 'Hiragino Kaku Gothic Pro', sans-serif;
+                    max-width: 900px;
+                    margin: 0 auto;
+                    padding: 40px 20px;
+                    background: white;
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 40px;
+                }
+                .header h1 {
+                    font-size: 32px;
+                    margin: 0 0 20px 0;
+                    color: #333;
+                }
+                .document-info {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 40px;
+                }
+                .document-info div {
+                    flex: 1;
+                }
+                .company-info {
+                    text-align: right;
+                }
+                .company-info p {
+                    margin: 5px 0;
+                }
+                .customer-info {
+                    margin-bottom: 30px;
+                }
+                .customer-info h3 {
+                    font-size: 18px;
+                    margin-bottom: 10px;
+                    border-bottom: 2px solid #667eea;
+                    padding-bottom: 5px;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 30px 0;
+                }
+                table th, table td {
+                    border: 1px solid #ddd;
+                    padding: 12px;
+                    text-align: left;
+                }
+                table th {
+                    background: #667eea;
+                    color: white;
+                    font-weight: bold;
+                }
+                .totals {
+                    width: 100%;
+                    max-width: 400px;
+                    margin-left: auto;
+                    margin-top: 30px;
+                }
+                .totals table {
+                    margin: 0;
+                }
+                .totals table td {
+                    border: 1px solid #ddd;
+                    padding: 10px;
+                }
+                .totals .total-row {
+                    background: #f8f9fa;
+                    font-weight: bold;
+                    font-size: 1.2em;
+                }
+                .print-button {
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 15px 30px;
+                    background: #667eea;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 16px;
+                    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+                }
+                .print-button:hover {
+                    background: #5568d3;
+                }
+            </style>
+        </head>
+        <body>
+            <button class="print-button no-print" onclick="window.print()">🖨️ 印刷 / PDF保存</button>
+            
+            <div class="header">
+                <h1>${title}</h1>
+            </div>
+            
+            <div class="document-info">
+                <div>
+                    <p><strong>${type === 'quote' ? '見積番号' : '請求番号'}:</strong> ${number}</p>
+                    <p><strong>発行日:</strong> ${issueDate}</p>
+                    <p><strong>${expiryOrDueLabel}:</strong> ${expiryOrDue}</p>
+                </div>
+                <div class="company-info">
+                    <p><strong>${COMPANY_INFO.name}</strong></p>
+                    <p>${COMPANY_INFO.representative}</p>
+                    <p>${COMPANY_INFO.address}</p>
+                    <p>TEL: ${COMPANY_INFO.phone}</p>
+                </div>
+            </div>
+            
+            <div class="customer-info">
+                <h3>お客様</h3>
+                <p><strong>${data.customers?.name || ''}</strong></p>
+                ${data.customers?.company ? `<p>${data.customers.company}</p>` : ''}
+                ${data.customers?.address ? `<p>${data.customers.address}</p>` : ''}
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>品目</th>
+                        <th style="width: 80px; text-align: center;">数量</th>
+                        <th style="width: 120px; text-align: right;">単価</th>
+                        <th style="width: 120px; text-align: right;">金額</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${itemsHTML}
+                </tbody>
+            </table>
+            
+            <div class="totals">
+                <table>
+                    <tr>
+                        <td>小計</td>
+                        <td style="text-align: right;">¥${(data.subtotal || 0).toLocaleString()}</td>
+                    </tr>
+                    <tr>
+                        <td>消費税</td>
+                        <td style="text-align: right;">¥${(data.tax || 0).toLocaleString()}</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td>合計</td>
+                        <td style="text-align: right;">¥${(data.total || 0).toLocaleString()}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            ${bankInfoHTML}
+            
+        </body>
+        </html>
+    `;
+    
+    printWindow.document.write(html);
+    printWindow.document.close();
+    
+    showNotification('印刷プレビューを開きました。印刷またはPDF保存できます。', 'success');
 }
 
 // Reports
