@@ -248,6 +248,10 @@ function initializeEventListeners() {
         const file = e.target.files[0];
         if (file) handleCSVFile(file);
     });
+    
+    // Discount field listeners for auto-recalculation
+    document.getElementById('quote-discount').addEventListener('input', calculateQuoteTotals);
+    document.getElementById('invoice-discount').addEventListener('input', calculateInvoiceTotals);
 }
 
 // ===============================
@@ -260,15 +264,27 @@ function initializeItemContainers() {
     addInvoiceItem();
 }
 
-function addQuoteItem() {
+async function addQuoteItem() {
     const container = document.getElementById('quote-items');
     const itemCount = container.children.length;
     
+    // Load services for dropdown
+    const services = await loadServices();
+    
     const itemDiv = document.createElement('div');
     itemDiv.className = 'item-row';
+    
+    let serviceOptions = '<option value="">サービスを選択...</option>';
+    services.forEach(service => {
+        serviceOptions += `<option value="${service.id}" data-name="${service.name}" data-price="${service.unit_price}" data-tax="${service.tax_rate}">${service.name} (¥${service.unit_price.toLocaleString()})</option>`;
+    });
+    
     itemDiv.innerHTML = `
         <div class="item-row-content">
-            <input type="text" class="item-description" placeholder="品目" required>
+            <select class="item-service-select" onchange="selectService(this, 'quote')">
+                ${serviceOptions}
+            </select>
+            <input type="text" class="item-description" placeholder="品目（手動入力可）" required>
             <input type="number" class="item-quantity" placeholder="数量" value="1" min="1" required>
             <input type="number" class="item-price" placeholder="単価" min="0" required>
             <select class="item-tax-rate" required>
@@ -290,15 +306,27 @@ function addQuoteItem() {
     });
 }
 
-function addInvoiceItem() {
+async function addInvoiceItem() {
     const container = document.getElementById('invoice-items');
     const itemCount = container.children.length;
     
+    // Load services for dropdown
+    const services = await loadServices();
+    
     const itemDiv = document.createElement('div');
     itemDiv.className = 'item-row';
+    
+    let serviceOptions = '<option value="">サービスを選択...</option>';
+    services.forEach(service => {
+        serviceOptions += `<option value="${service.id}" data-name="${service.name}" data-price="${service.unit_price}" data-tax="${service.tax_rate}">${service.name} (¥${service.unit_price.toLocaleString()})</option>`;
+    });
+    
     itemDiv.innerHTML = `
         <div class="item-row-content">
-            <input type="text" class="item-description" placeholder="品目" required>
+            <select class="item-service-select" onchange="selectService(this, 'invoice')">
+                ${serviceOptions}
+            </select>
+            <input type="text" class="item-description" placeholder="品目（手動入力可）" required>
             <input type="number" class="item-quantity" placeholder="数量" value="1" min="1" required>
             <input type="number" class="item-price" placeholder="単価" min="0" required>
             <select class="item-tax-rate" required>
@@ -318,6 +346,32 @@ function addInvoiceItem() {
     inputs.forEach(input => {
         input.addEventListener('input', () => calculateInvoiceTotals());
     });
+}
+
+function selectService(selectElement, type) {
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+    if (!selectedOption.value) return;
+    
+    const itemRow = selectElement.closest('.item-row');
+    const descriptionInput = itemRow.querySelector('.item-description');
+    const priceInput = itemRow.querySelector('.item-price');
+    const taxSelect = itemRow.querySelector('.item-tax-rate');
+    
+    // Auto-fill from service data
+    const serviceName = selectedOption.getAttribute('data-name');
+    const servicePrice = selectedOption.getAttribute('data-price');
+    const serviceTax = selectedOption.getAttribute('data-tax');
+    
+    descriptionInput.value = serviceName;
+    priceInput.value = servicePrice;
+    taxSelect.value = serviceTax;
+    
+    // Recalculate
+    if (type === 'quote') {
+        calculateQuoteTotals();
+    } else {
+        calculateInvoiceTotals();
+    }
 }
 
 function removeItem(button) {
@@ -361,10 +415,14 @@ function calculateQuoteTotals() {
         totalTax += tax;
     });
     
-    const total = subtotal + totalTax;
+    // Get discount value
+    const discount = parseFloat(document.getElementById('quote-discount').value) || 0;
+    const subtotalAfterDiscount = Math.max(0, subtotal - discount);
+    const totalTaxAfterDiscount = subtotalAfterDiscount * (totalTax / (subtotal || 1));
+    const total = subtotalAfterDiscount + totalTaxAfterDiscount;
     
     document.getElementById('quote-subtotal').value = `¥${subtotal.toLocaleString()}`;
-    document.getElementById('quote-tax').value = `¥${totalTax.toLocaleString()}`;
+    document.getElementById('quote-tax').value = `¥${totalTaxAfterDiscount.toLocaleString()}`;
     document.getElementById('quote-total').value = `¥${total.toLocaleString()}`;
 }
 
@@ -389,10 +447,14 @@ function calculateInvoiceTotals() {
         totalTax += tax;
     });
     
-    const total = subtotal + totalTax;
+    // Get discount value
+    const discount = parseFloat(document.getElementById('invoice-discount').value) || 0;
+    const subtotalAfterDiscount = Math.max(0, subtotal - discount);
+    const totalTaxAfterDiscount = subtotalAfterDiscount * (totalTax / (subtotal || 1));
+    const total = subtotalAfterDiscount + totalTaxAfterDiscount;
     
     document.getElementById('invoice-subtotal').value = `¥${subtotal.toLocaleString()}`;
-    document.getElementById('invoice-tax').value = `¥${totalTax.toLocaleString()}`;
+    document.getElementById('invoice-tax').value = `¥${totalTaxAfterDiscount.toLocaleString()}`;
     document.getElementById('invoice-total').value = `¥${total.toLocaleString()}`;
 }
 
@@ -863,7 +925,10 @@ async function handleQuotationSubmit(e) {
         totalTax += tax;
     });
     
-    const total = subtotal + totalTax;
+    const discount = parseFloat(document.getElementById('quote-discount').value) || 0;
+    const subtotalAfterDiscount = Math.max(0, subtotal - discount);
+    const totalTaxAfterDiscount = subtotalAfterDiscount * (totalTax / (subtotal || 1));
+    const total = subtotalAfterDiscount + totalTaxAfterDiscount;
     
     // Generate quote number
     const quotations = await loadQuotations();
@@ -878,7 +943,8 @@ async function handleQuotationSubmit(e) {
         expiry_date: document.getElementById('quote-expiry').value,
         items: items,
         subtotal: subtotal,
-        tax: totalTax,
+        discount: discount,
+        tax: totalTaxAfterDiscount,
         total: total
     };
     
@@ -991,6 +1057,7 @@ async function convertToInvoice(quoteId) {
             due_date: dueDate.toISOString().split('T')[0],
             items: quote.items,
             subtotal: quote.subtotal,
+            discount: quote.discount || 0,
             tax: quote.tax,
             total: quote.total,
             status: 'unpaid'
@@ -1064,7 +1131,10 @@ async function handleInvoiceSubmit(e) {
         totalTax += tax;
     });
     
-    const total = subtotal + totalTax;
+    const discount = parseFloat(document.getElementById('invoice-discount').value) || 0;
+    const subtotalAfterDiscount = Math.max(0, subtotal - discount);
+    const totalTaxAfterDiscount = subtotalAfterDiscount * (totalTax / (subtotal || 1));
+    const total = subtotalAfterDiscount + totalTaxAfterDiscount;
     
     // Generate invoice number
     const invoices = await loadInvoices();
@@ -1079,7 +1149,8 @@ async function handleInvoiceSubmit(e) {
         due_date: document.getElementById('invoice-due').value,
         items: items,
         subtotal: subtotal,
-        tax: totalTax,
+        discount: discount,
+        tax: totalTaxAfterDiscount,
         total: total,
         status: 'unpaid'
     };
@@ -1827,10 +1898,9 @@ function generatePrintableDocument(data, type) {
             </div>
             
             <div class="customer-info">
-                <h3>お客様</h3>
-                <p><strong>${data.customers?.name || ''}</strong></p>
-                ${data.customers?.company ? `<p>${data.customers.company}</p>` : ''}
-                ${data.customers?.address ? `<p>${data.customers.address}</p>` : ''}
+                <h3>請求先</h3>
+                ${data.customers?.company ? `<p><strong>${data.customers.company}</strong></p>` : ''}
+                <p>${data.customers?.name || ''} 様</p>
             </div>
             
             <table>
@@ -1853,6 +1923,11 @@ function generatePrintableDocument(data, type) {
                         <td>小計</td>
                         <td style="text-align: right;">¥${(data.subtotal || 0).toLocaleString()}</td>
                     </tr>
+                    ${(data.discount && data.discount > 0) ? `
+                    <tr>
+                        <td>値引き</td>
+                        <td style="text-align: right; color: #dc3545;">-¥${(data.discount || 0).toLocaleString()}</td>
+                    </tr>` : ''}
                     <tr>
                         <td>消費税</td>
                         <td style="text-align: right;">¥${(data.tax || 0).toLocaleString()}</td>

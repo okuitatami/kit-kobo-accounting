@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   due_date DATE NOT NULL,
   items JSONB,
   subtotal NUMERIC,
+  discount NUMERIC DEFAULT 0,
   tax NUMERIC,
   total NUMERIC,
   status TEXT DEFAULT 'unpaid' CHECK (status IN ('unpaid', 'paid')),
@@ -71,6 +72,7 @@ CREATE TABLE IF NOT EXISTS quotations (
   expiry_date DATE NOT NULL,
   items JSONB,
   subtotal NUMERIC,
+  discount NUMERIC DEFAULT 0,
   tax NUMERIC,
   total NUMERIC,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
