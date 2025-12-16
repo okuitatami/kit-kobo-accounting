@@ -76,6 +76,20 @@ CREATE TABLE IF NOT EXISTS quotations (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 継続収入テーブル（月額契約など）
+CREATE TABLE IF NOT EXISTS recurring_revenue (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
+  service_name TEXT NOT NULL,
+  amount NUMERIC NOT NULL,
+  tax_rate NUMERIC DEFAULT 0.10,
+  start_date DATE NOT NULL,
+  billing_day TEXT,
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'cancelled')),
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- ============================================
 -- インデックスの作成（パフォーマンス向上）
 -- ============================================
@@ -101,6 +115,12 @@ CREATE INDEX IF NOT EXISTS idx_quotations_customer
 CREATE INDEX IF NOT EXISTS idx_quotations_issue_date 
   ON quotations(issue_date DESC);
 
+CREATE INDEX IF NOT EXISTS idx_recurring_revenue_customer 
+  ON recurring_revenue(customer_id);
+
+CREATE INDEX IF NOT EXISTS idx_recurring_revenue_status 
+  ON recurring_revenue(status);
+
 -- ============================================
 -- Row Level Security (RLS) の設定
 -- ============================================
@@ -111,6 +131,7 @@ ALTER TABLE services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE journal_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quotations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recurring_revenue ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- RLSポリシーの作成（開発環境用）
@@ -140,6 +161,10 @@ CREATE POLICY "Enable all for all users" ON invoices
 
 DROP POLICY IF EXISTS "Enable all for all users" ON quotations;
 CREATE POLICY "Enable all for all users" ON quotations 
+  FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Enable all for all users" ON recurring_revenue;
+CREATE POLICY "Enable all for all users" ON recurring_revenue 
   FOR ALL USING (true);
 
 -- ============================================
@@ -176,6 +201,7 @@ BEGIN
   RAISE NOTICE '   - journal_entries (仕訳帳)';
   RAISE NOTICE '   - invoices (請求書)';
   RAISE NOTICE '   - quotations (見積書)';
+  RAISE NOTICE '   - recurring_revenue (継続収入)';
   RAISE NOTICE '';
   RAISE NOTICE '🔒 RLSが有効化されました';
   RAISE NOTICE '⚠️  現在は開発環境用のポリシーです';

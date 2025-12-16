@@ -28,6 +28,7 @@
             <button class="nav-tab" data-tab="journal">📖 仕訳帳</button>
             <button class="nav-tab" data-tab="quotations">📄 見積書</button>
             <button class="nav-tab" data-tab="invoices">🧾 請求書</button>
+            <button class="nav-tab" data-tab="recurring">💰 継続収入</button>
             <button class="nav-tab" data-tab="customers">👥 顧客管理</button>
             <button class="nav-tab" data-tab="services">🔧 サービス管理</button>
             <button class="nav-tab" data-tab="reports">📈 確定申告レポート</button>
@@ -56,6 +57,14 @@
                     <div class="summary-card card-unpaid">
                         <h3>⏳ 未払い請求書</h3>
                         <p class="amount" id="unpaid-invoices">¥0</p>
+                    </div>
+                    <div class="summary-card card-recurring">
+                        <h3>🔄 今月の継続収入</h3>
+                        <p class="amount" id="monthly-recurring">¥0</p>
+                    </div>
+                    <div class="summary-card card-customers">
+                        <h3>👥 契約中の顧客</h3>
+                        <p class="amount" id="recurring-customers">0件</p>
                     </div>
                 </div>
 
@@ -257,6 +266,80 @@
                 <div class="form-card">
                     <h3>請求書一覧</h3>
                     <div id="invoice-list"></div>
+                </div>
+            </div>
+
+            <!-- Recurring Revenue Tab -->
+            <div id="recurring" class="tab-content">
+                <h2>💰 継続収入管理</h2>
+                
+                <div class="form-card">
+                    <h3>新しい継続収入を登録</h3>
+                    <form id="recurring-form" onsubmit="handleRecurringSubmit(event)">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="recurring-customer">顧客選択</label>
+                                <select id="recurring-customer" required>
+                                    <option value="">顧客を選択...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="recurring-service">サービス名</label>
+                                <input type="text" id="recurring-service" placeholder="月額サポート" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="recurring-amount">月額（税抜）</label>
+                                <input type="number" id="recurring-amount" placeholder="10000" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="recurring-tax">消費税率</label>
+                                <select id="recurring-tax" required>
+                                    <option value="0.10">10%</option>
+                                    <option value="0.08">8%</option>
+                                    <option value="0.00">0%</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="recurring-start">開始日</label>
+                                <input type="date" id="recurring-start" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="recurring-billing-day">請求日（毎月）</label>
+                                <select id="recurring-billing-day" required>
+                                    <option value="1">1日</option>
+                                    <option value="5">5日</option>
+                                    <option value="10">10日</option>
+                                    <option value="15">15日</option>
+                                    <option value="20">20日</option>
+                                    <option value="25">25日</option>
+                                    <option value="末日">末日</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="recurring-notes">備考</label>
+                            <textarea id="recurring-notes" rows="3" placeholder="契約内容など"></textarea>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">継続収入を登録</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="form-card">
+                    <h3>継続収入一覧</h3>
+                    <div class="form-actions">
+                        <button class="btn btn-success" onclick="generateMonthlyJournals()">📅 今月分の仕訳を生成</button>
+                    </div>
+                    <div id="recurring-list"></div>
                 </div>
             </div>
 
