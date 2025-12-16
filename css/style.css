@@ -120,6 +120,14 @@ main {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
+.card-recurring {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.card-customers {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
 .summary-card h3 {
     font-size: 1rem;
     margin-bottom: 15px;
@@ -394,6 +402,7 @@ main {
     padding: 5px 10px;
     border-radius: 5px;
     font-size: 0.8rem;
+    margin-left: 10px;
 }
 
 .badge-danger {
@@ -402,6 +411,16 @@ main {
     padding: 5px 10px;
     border-radius: 5px;
     font-size: 0.8rem;
+    margin-left: 10px;
+}
+
+.badge-warning {
+    background: #ffc107;
+    color: #333;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.8rem;
+    margin-left: 10px;
 }
 
 /* Filter Controls */
@@ -518,6 +537,16 @@ main {
         gap: 10px;
     }
 
+    /* Item row mobile layout */
+    .item-row-content {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .item-row .btn-remove {
+        width: 100%;
+    }
+
     .chart-container {
         padding: 15px;
     }
@@ -538,6 +567,67 @@ main {
     .upload-area {
         padding: 30px 15px;
     }
+}
+
+/* Item Row Styles */
+.item-row {
+    margin-bottom: 15px;
+    padding: 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    background: #f8f9fa;
+}
+
+.item-row-content {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+    gap: 10px;
+    align-items: center;
+}
+
+.item-row input,
+.item-row select {
+    padding: 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.item-row input:focus,
+.item-row select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.item-row .btn-remove {
+    padding: 8px 16px;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+
+.item-row .btn-remove:hover {
+    background: #c82333;
+}
+
+/* Textarea Styles */
+textarea {
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: border 0.3s;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: #667eea;
 }
 
 /* Print Styles */

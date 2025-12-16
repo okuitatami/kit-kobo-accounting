@@ -63,6 +63,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     initializeYearSelects();
     initializeDateFields();
     initializeEventListeners();
+    
+    // Initialize item containers
+    initializeItemContainers();
+    
     await loadAllData();
     updateDashboard();
 });
@@ -97,6 +101,8 @@ function initializeTabs() {
                 displayCustomers();
             } else if (targetTab === 'services') {
                 displayServices();
+            } else if (targetTab === 'recurring') {
+                displayRecurringRevenue();
             }
         });
     });
@@ -245,6 +251,176 @@ function initializeEventListeners() {
 }
 
 // ===============================
+// ITEM MANAGEMENT
+// ===============================
+
+function initializeItemContainers() {
+    // Add first item to quote and invoice forms
+    addQuoteItem();
+    addInvoiceItem();
+}
+
+function addQuoteItem() {
+    const container = document.getElementById('quote-items');
+    const itemCount = container.children.length;
+    
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'item-row';
+    itemDiv.innerHTML = `
+        <div class="item-row-content">
+            <input type="text" class="item-description" placeholder="品目" required>
+            <input type="number" class="item-quantity" placeholder="数量" value="1" min="1" required>
+            <input type="number" class="item-price" placeholder="単価" min="0" required>
+            <select class="item-tax-rate" required>
+                <option value="0.10">10%</option>
+                <option value="0.08">8%</option>
+                <option value="0.00">0%</option>
+            </select>
+            <input type="text" class="item-amount" placeholder="¥0" readonly>
+            ${itemCount > 0 ? '<button type="button" class="btn-remove" onclick="removeItem(this)">削除</button>' : ''}
+        </div>
+    `;
+    
+    container.appendChild(itemDiv);
+    
+    // Add event listeners for calculations
+    const inputs = itemDiv.querySelectorAll('.item-quantity, .item-price, .item-tax-rate');
+    inputs.forEach(input => {
+        input.addEventListener('input', () => calculateQuoteTotals());
+    });
+}
+
+function addInvoiceItem() {
+    const container = document.getElementById('invoice-items');
+    const itemCount = container.children.length;
+    
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'item-row';
+    itemDiv.innerHTML = `
+        <div class="item-row-content">
+            <input type="text" class="item-description" placeholder="品目" required>
+            <input type="number" class="item-quantity" placeholder="数量" value="1" min="1" required>
+            <input type="number" class="item-price" placeholder="単価" min="0" required>
+            <select class="item-tax-rate" required>
+                <option value="0.10">10%</option>
+                <option value="0.08">8%</option>
+                <option value="0.00">0%</option>
+            </select>
+            <input type="text" class="item-amount" placeholder="¥0" readonly>
+            ${itemCount > 0 ? '<button type="button" class="btn-remove" onclick="removeItem(this)">削除</button>' : ''}
+        </div>
+    `;
+    
+    container.appendChild(itemDiv);
+    
+    // Add event listeners for calculations
+    const inputs = itemDiv.querySelectorAll('.item-quantity, .item-price, .item-tax-rate');
+    inputs.forEach(input => {
+        input.addEventListener('input', () => calculateInvoiceTotals());
+    });
+}
+
+function removeItem(button) {
+    const itemRow = button.closest('.item-row');
+    const container = itemRow.parentElement;
+    
+    // Don't remove if it's the last item
+    if (container.children.length <= 1) {
+        showNotification('最低1つの明細が必要です', 'warning');
+        return;
+    }
+    
+    itemRow.remove();
+    
+    // Recalculate totals
+    if (container.id === 'quote-items') {
+        calculateQuoteTotals();
+    } else {
+        calculateInvoiceTotals();
+    }
+}
+
+function calculateQuoteTotals() {
+    const container = document.getElementById('quote-items');
+    const items = container.querySelectorAll('.item-row');
+    
+    let subtotal = 0;
+    let totalTax = 0;
+    
+    items.forEach(item => {
+        const quantity = parseFloat(item.querySelector('.item-quantity').value) || 0;
+        const price = parseFloat(item.querySelector('.item-price').value) || 0;
+        const taxRate = parseFloat(item.querySelector('.item-tax-rate').value) || 0;
+        
+        const amount = quantity * price;
+        const tax = amount * taxRate;
+        
+        item.querySelector('.item-amount').value = `¥${amount.toLocaleString()}`;
+        
+        subtotal += amount;
+        totalTax += tax;
+    });
+    
+    const total = subtotal + totalTax;
+    
+    document.getElementById('quote-subtotal').value = `¥${subtotal.toLocaleString()}`;
+    document.getElementById('quote-tax').value = `¥${totalTax.toLocaleString()}`;
+    document.getElementById('quote-total').value = `¥${total.toLocaleString()}`;
+}
+
+function calculateInvoiceTotals() {
+    const container = document.getElementById('invoice-items');
+    const items = container.querySelectorAll('.item-row');
+    
+    let subtotal = 0;
+    let totalTax = 0;
+    
+    items.forEach(item => {
+        const quantity = parseFloat(item.querySelector('.item-quantity').value) || 0;
+        const price = parseFloat(item.querySelector('.item-price').value) || 0;
+        const taxRate = parseFloat(item.querySelector('.item-tax-rate').value) || 0;
+        
+        const amount = quantity * price;
+        const tax = amount * taxRate;
+        
+        item.querySelector('.item-amount').value = `¥${amount.toLocaleString()}`;
+        
+        subtotal += amount;
+        totalTax += tax;
+    });
+    
+    const total = subtotal + totalTax;
+    
+    document.getElementById('invoice-subtotal').value = `¥${subtotal.toLocaleString()}`;
+    document.getElementById('invoice-tax').value = `¥${totalTax.toLocaleString()}`;
+    document.getElementById('invoice-total').value = `¥${total.toLocaleString()}`;
+}
+
+function collectQuoteItems() {
+    const container = document.getElementById('quote-items');
+    const items = container.querySelectorAll('.item-row');
+    
+    return Array.from(items).map(item => ({
+        description: item.querySelector('.item-description').value,
+        quantity: parseFloat(item.querySelector('.item-quantity').value),
+        price: parseFloat(item.querySelector('.item-price').value),
+        taxRate: parseFloat(item.querySelector('.item-tax-rate').value)
+    }));
+}
+
+function collectInvoiceItems() {
+    const container = document.getElementById('invoice-items');
+    const items = container.querySelectorAll('.item-row');
+    
+    return Array.from(items).map(item => ({
+        description: item.querySelector('.item-description').value,
+        quantity: parseFloat(item.querySelector('.item-quantity').value),
+        price: parseFloat(item.querySelector('.item-price').value),
+        taxRate: parseFloat(item.querySelector('.item-tax-rate').value)
+    }));
+}
+
+// ===============================
 // SUPABASE DATA OPERATIONS
 // ===============================
 
@@ -256,7 +432,8 @@ async function loadAllData() {
             loadServices(),
             loadJournalEntries(),
             loadQuotations(),
-            loadInvoices()
+            loadInvoices(),
+            loadRecurringRevenue()
         ]);
     } catch (error) {
         console.error('Error loading data:', error);
@@ -289,10 +466,14 @@ async function loadCustomers() {
 function updateCustomerSelects(customers) {
     const quoteCustomer = document.getElementById('quote-customer');
     const invoiceCustomer = document.getElementById('invoice-customer');
+    const recurringCustomer = document.getElementById('recurring-customer');
     
     // Clear existing options except first
     quoteCustomer.innerHTML = '<option value="">顧客を選択...</option>';
     invoiceCustomer.innerHTML = '<option value="">顧客を選択...</option>';
+    if (recurringCustomer) {
+        recurringCustomer.innerHTML = '<option value="">顧客を選択...</option>';
+    }
     
     customers.forEach(customer => {
         const option1 = document.createElement('option');
@@ -304,6 +485,13 @@ function updateCustomerSelects(customers) {
         option2.value = customer.id;
         option2.textContent = customer.name + (customer.company ? ` (${customer.company})` : '');
         invoiceCustomer.appendChild(option2);
+        
+        if (recurringCustomer) {
+            const option3 = document.createElement('option');
+            option3.value = customer.id;
+            option3.textContent = customer.name + (customer.company ? ` (${customer.company})` : '');
+            recurringCustomer.appendChild(option3);
+        }
     });
 }
 
@@ -661,6 +849,22 @@ async function handleQuotationSubmit(e) {
         return;
     }
     
+    // Collect items
+    const items = collectQuoteItems();
+    
+    // Calculate totals
+    let subtotal = 0;
+    let totalTax = 0;
+    
+    items.forEach(item => {
+        const amount = item.quantity * item.price;
+        const tax = amount * item.taxRate;
+        subtotal += amount;
+        totalTax += tax;
+    });
+    
+    const total = subtotal + totalTax;
+    
     // Generate quote number
     const quotations = await loadQuotations();
     const year = new Date().getFullYear();
@@ -672,10 +876,10 @@ async function handleQuotationSubmit(e) {
         customer_id: customerId,
         issue_date: document.getElementById('quote-date').value,
         expiry_date: document.getElementById('quote-expiry').value,
-        items: [], // TODO: Collect items
-        subtotal: 0, // TODO: Calculate
-        tax: 0,
-        total: 0
+        items: items,
+        subtotal: subtotal,
+        tax: totalTax,
+        total: total
     };
     
     try {
@@ -688,6 +892,12 @@ async function handleQuotationSubmit(e) {
         showNotification('見積書を作成しました', 'success');
         e.target.reset();
         initializeDateFields();
+        
+        // Clear items and re-initialize
+        document.getElementById('quote-items').innerHTML = '';
+        addQuoteItem();
+        calculateQuoteTotals();
+        
         displayQuotations();
     } catch (error) {
         console.error('Error creating quotation:', error);
@@ -746,6 +956,67 @@ async function deleteQuotation(id) {
     }
 }
 
+// Convert Quote to Invoice
+async function convertToInvoice(quoteId) {
+    if (!supabase) {
+        showNotification('Supabaseが設定されていません', 'error');
+        return;
+    }
+    
+    try {
+        // Get quotation data
+        const { data: quote, error: quoteError } = await supabase
+            .from('quotations')
+            .select('*')
+            .eq('id', quoteId)
+            .single();
+        
+        if (quoteError) throw quoteError;
+        
+        // Generate invoice number
+        const invoices = await loadInvoices();
+        const year = new Date().getFullYear();
+        const count = invoices.filter(i => i.invoice_number.startsWith(`I-${year}-`)).length + 1;
+        const invoiceNumber = `I-${year}-${String(count).padStart(3, '0')}`;
+        
+        // Create invoice with same data
+        const today = new Date().toISOString().split('T')[0];
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 45);
+        
+        const invoiceData = {
+            invoice_number: invoiceNumber,
+            customer_id: quote.customer_id,
+            issue_date: today,
+            due_date: dueDate.toISOString().split('T')[0],
+            items: quote.items,
+            subtotal: quote.subtotal,
+            tax: quote.tax,
+            total: quote.total,
+            status: 'unpaid'
+        };
+        
+        const { error: invoiceError } = await supabase
+            .from('invoices')
+            .insert([invoiceData]);
+        
+        if (invoiceError) throw invoiceError;
+        
+        // Create journal entry for invoice
+        await createInvoiceJournalEntry(invoiceData);
+        
+        showNotification(`請求書 ${invoiceNumber} を作成しました`, 'success');
+        displayInvoices();
+        
+        // Switch to invoice tab
+        document.querySelector('[data-tab="invoices"]').click();
+        
+    } catch (error) {
+        console.error('Error converting to invoice:', error);
+        showNotification('請求書への変換に失敗しました', 'error');
+    }
+}
+
 // Invoices
 async function loadInvoices() {
     if (!supabase) return [];
@@ -779,6 +1050,22 @@ async function handleInvoiceSubmit(e) {
         return;
     }
     
+    // Collect items
+    const items = collectInvoiceItems();
+    
+    // Calculate totals
+    let subtotal = 0;
+    let totalTax = 0;
+    
+    items.forEach(item => {
+        const amount = item.quantity * item.price;
+        const tax = amount * item.taxRate;
+        subtotal += amount;
+        totalTax += tax;
+    });
+    
+    const total = subtotal + totalTax;
+    
     // Generate invoice number
     const invoices = await loadInvoices();
     const year = new Date().getFullYear();
@@ -790,10 +1077,10 @@ async function handleInvoiceSubmit(e) {
         customer_id: customerId,
         issue_date: document.getElementById('invoice-date').value,
         due_date: document.getElementById('invoice-due').value,
-        items: [], // TODO: Collect items
-        subtotal: 0, // TODO: Calculate
-        tax: 0,
-        total: 0,
+        items: items,
+        subtotal: subtotal,
+        tax: totalTax,
+        total: total,
         status: 'unpaid'
     };
     
@@ -807,6 +1094,12 @@ async function handleInvoiceSubmit(e) {
         showNotification('請求書を作成しました', 'success');
         e.target.reset();
         initializeDateFields();
+        
+        // Clear items and re-initialize
+        document.getElementById('invoice-items').innerHTML = '';
+        addInvoiceItem();
+        calculateInvoiceTotals();
+        
         displayInvoices();
         
         // Create journal entry for invoice
@@ -935,10 +1228,226 @@ async function deleteInvoice(id) {
     }
 }
 
+// ===============================
+// RECURRING REVENUE MANAGEMENT
+// ===============================
+
+async function loadRecurringRevenue() {
+    if (!supabase) return [];
+    
+    try {
+        const { data, error } = await supabase
+            .from('recurring_revenue')
+            .select('*, customers(*)')
+            .order('created_at', { ascending: false });
+        
+        if (error) {
+            // Table might not exist yet
+            console.warn('recurring_revenue table not found:', error);
+            return [];
+        }
+        
+        return data || [];
+    } catch (error) {
+        console.error('Error loading recurring revenue:', error);
+        return [];
+    }
+}
+
+async function handleRecurringSubmit(e) {
+    e.preventDefault();
+    
+    if (!supabase) {
+        showNotification('Supabaseが設定されていません', 'error');
+        return;
+    }
+    
+    const recurringData = {
+        customer_id: document.getElementById('recurring-customer').value,
+        service_name: document.getElementById('recurring-service').value,
+        amount: parseFloat(document.getElementById('recurring-amount').value),
+        tax_rate: parseFloat(document.getElementById('recurring-tax').value),
+        start_date: document.getElementById('recurring-start').value,
+        billing_day: document.getElementById('recurring-billing-day').value,
+        notes: document.getElementById('recurring-notes').value,
+        status: 'active'
+    };
+    
+    try {
+        const { error } = await supabase
+            .from('recurring_revenue')
+            .insert([recurringData]);
+        
+        if (error) throw error;
+        
+        showNotification('継続収入を登録しました', 'success');
+        e.target.reset();
+        displayRecurringRevenue();
+        updateDashboard();
+    } catch (error) {
+        console.error('Error adding recurring revenue:', error);
+        if (error.message.includes('relation "recurring_revenue" does not exist')) {
+            showNotification('recurring_revenueテーブルが存在しません。Supabaseでテーブルを作成してください。', 'error');
+        } else {
+            showNotification('継続収入の登録に失敗しました', 'error');
+        }
+    }
+}
+
+async function displayRecurringRevenue() {
+    const recurring = await loadRecurringRevenue();
+    const list = document.getElementById('recurring-list');
+    
+    if (!list) return;
+    
+    if (recurring.length === 0) {
+        list.innerHTML = '<p class="info-text">継続収入が登録されていません</p>';
+        return;
+    }
+    
+    list.innerHTML = recurring.map(item => {
+        const statusBadge = item.status === 'active' ? 'badge-success' : 
+                           item.status === 'paused' ? 'badge-warning' : 'badge-danger';
+        const statusText = item.status === 'active' ? '契約中' : 
+                          item.status === 'paused' ? '一時停止' : '解約済';
+        
+        return `
+            <div class="data-item">
+                <div class="data-item-info">
+                    <strong>${item.service_name}</strong>
+                    <span class="${statusBadge}">${statusText}</span>
+                    <br><span>顧客: ${item.customers?.name || '不明'}</span>
+                    <br><span>月額: ¥${item.amount.toLocaleString()}</span>
+                    <br><span>開始日: ${item.start_date}</span>
+                    <br><span>請求日: 毎月${item.billing_day}日</span>
+                    ${item.notes ? `<br><span>備考: ${item.notes}</span>` : ''}
+                </div>
+                <div class="data-item-actions">
+                    ${item.status === 'active' ? `
+                        <button class="btn btn-secondary" onclick="pauseRecurring('${item.id}')">一時停止</button>
+                    ` : ''}
+                    ${item.status === 'paused' ? `
+                        <button class="btn btn-success" onclick="resumeRecurring('${item.id}')">再開</button>
+                    ` : ''}
+                    ${item.status !== 'cancelled' ? `
+                        <button class="btn btn-danger" onclick="cancelRecurring('${item.id}')">解約</button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function pauseRecurring(id) {
+    if (!confirm('この契約を一時停止しますか？')) return;
+    
+    try {
+        const { error } = await supabase
+            .from('recurring_revenue')
+            .update({ status: 'paused' })
+            .eq('id', id);
+        
+        if (error) throw error;
+        
+        showNotification('契約を一時停止しました', 'success');
+        displayRecurringRevenue();
+        updateDashboard();
+    } catch (error) {
+        console.error('Error pausing recurring:', error);
+        showNotification('一時停止に失敗しました', 'error');
+    }
+}
+
+async function resumeRecurring(id) {
+    try {
+        const { error } = await supabase
+            .from('recurring_revenue')
+            .update({ status: 'active' })
+            .eq('id', id);
+        
+        if (error) throw error;
+        
+        showNotification('契約を再開しました', 'success');
+        displayRecurringRevenue();
+        updateDashboard();
+    } catch (error) {
+        console.error('Error resuming recurring:', error);
+        showNotification('再開に失敗しました', 'error');
+    }
+}
+
+async function cancelRecurring(id) {
+    if (!confirm('この契約を解約しますか？')) return;
+    
+    try {
+        const { error } = await supabase
+            .from('recurring_revenue')
+            .update({ status: 'cancelled' })
+            .eq('id', id);
+        
+        if (error) throw error;
+        
+        showNotification('契約を解約しました', 'success');
+        displayRecurringRevenue();
+        updateDashboard();
+    } catch (error) {
+        console.error('Error cancelling recurring:', error);
+        showNotification('解約に失敗しました', 'error');
+    }
+}
+
+async function generateMonthlyJournals() {
+    if (!confirm('今月分の継続収入の仕訳を生成しますか？')) return;
+    
+    try {
+        const recurring = await loadRecurringRevenue();
+        const activeRecurring = recurring.filter(r => r.status === 'active');
+        
+        if (activeRecurring.length === 0) {
+            showNotification('契約中の継続収入がありません', 'warning');
+            return;
+        }
+        
+        const today = new Date();
+        const dateStr = today.toISOString().split('T')[0];
+        
+        const entries = activeRecurring.map(item => {
+            const totalAmount = item.amount * (1 + item.tax_rate);
+            
+            return {
+                date: dateStr,
+                debit_account: '売掛金',
+                debit_amount: totalAmount,
+                credit_account: '売上高',
+                credit_amount: totalAmount,
+                description: `継続収入: ${item.service_name} (${item.customers?.name || '不明'})`
+            };
+        });
+        
+        const { error } = await supabase
+            .from('journal_entries')
+            .insert(entries);
+        
+        if (error) throw error;
+        
+        showNotification(`${entries.length}件の仕訳を生成しました`, 'success');
+        displayJournalEntries();
+        updateDashboard();
+        
+        // Switch to journal tab
+        document.querySelector('[data-tab="journal"]').click();
+        
+    } catch (error) {
+        console.error('Error generating monthly journals:', error);
+        showNotification('仕訳の生成に失敗しました', 'error');
+    }
+}
+
 // Dashboard
 async function updateDashboard() {
     const entries = await loadJournalEntries();
     const invoices = await loadInvoices();
+    const recurring = await loadRecurringRevenue();
     
     // Calculate totals
     let totalRevenue = 0;
@@ -958,11 +1467,27 @@ async function updateDashboard() {
         .filter(inv => inv.status === 'unpaid')
         .reduce((sum, inv) => sum + (inv.total || 0), 0);
     
+    // Calculate monthly recurring revenue
+    const activeRecurring = recurring.filter(r => r.status === 'active');
+    const monthlyRecurring = activeRecurring.reduce((sum, r) => sum + (r.amount * (1 + r.tax_rate)), 0);
+    
     // Update summary cards
     document.getElementById('total-revenue').textContent = `¥${totalRevenue.toLocaleString()}`;
     document.getElementById('total-expense').textContent = `¥${totalExpense.toLocaleString()}`;
     document.getElementById('total-profit').textContent = `¥${totalProfit.toLocaleString()}`;
     document.getElementById('unpaid-invoices').textContent = `¥${unpaidAmount.toLocaleString()}`;
+    
+    // Update recurring revenue cards if they exist
+    const recurringRevenueEl = document.getElementById('monthly-recurring');
+    const recurringCustomersEl = document.getElementById('recurring-customers');
+    
+    if (recurringRevenueEl) {
+        recurringRevenueEl.textContent = `¥${monthlyRecurring.toLocaleString()}`;
+    }
+    
+    if (recurringCustomersEl) {
+        recurringCustomersEl.textContent = `${activeRecurring.length}件`;
+    }
     
     // Update charts
     updateCharts(entries);
@@ -993,7 +1518,13 @@ function updateCharts(entries) {
     
     // Monthly Chart
     const monthlyCtx = document.getElementById('monthlyChart');
-    if (monthlyCtx) {
+    if (monthlyCtx && typeof Chart !== 'undefined') {
+        // Clear existing chart
+        const existingChart = Chart.getChart(monthlyCtx);
+        if (existingChart) {
+            existingChart.destroy();
+        }
+        
         new Chart(monthlyCtx, {
             type: 'line',
             data: {
@@ -1032,7 +1563,13 @@ function updateCharts(entries) {
     });
     
     const expenseCtx = document.getElementById('expenseChart');
-    if (expenseCtx) {
+    if (expenseCtx && typeof Chart !== 'undefined' && Object.keys(expenseByCategory).length > 0) {
+        // Clear existing chart
+        const existingChart = Chart.getChart(expenseCtx);
+        if (existingChart) {
+            existingChart.destroy();
+        }
+        
         new Chart(expenseCtx, {
             type: 'doughnut',
             data: {
@@ -1075,6 +1612,166 @@ function displayRecentEntries(entries) {
             </div>
         </div>
     `).join('');
+}
+
+// ===============================
+// PDF GENERATION
+// ===============================
+
+async function viewQuotePDF(id) {
+    if (!supabase) {
+        showNotification('Supabaseが設定されていません', 'error');
+        return;
+    }
+    
+    try {
+        // Get quotation data
+        const { data: quote, error } = await supabase
+            .from('quotations')
+            .select('*, customers(*)')
+            .eq('id', id)
+            .single();
+        
+        if (error) throw error;
+        
+        generatePDF(quote, 'quote');
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        showNotification('PDF生成に失敗しました', 'error');
+    }
+}
+
+async function viewInvoicePDF(id) {
+    if (!supabase) {
+        showNotification('Supabaseが設定されていません', 'error');
+        return;
+    }
+    
+    try {
+        // Get invoice data
+        const { data: invoice, error } = await supabase
+            .from('invoices')
+            .select('*, customers(*)')
+            .eq('id', id)
+            .single();
+        
+        if (error) throw error;
+        
+        generatePDF(invoice, 'invoice');
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        showNotification('PDF生成に失敗しました', 'error');
+    }
+}
+
+function generatePDF(data, type) {
+    // Check if jsPDF is available
+    if (typeof window.jspdf === 'undefined') {
+        showNotification('PDF生成ライブラリが読み込まれていません', 'error');
+        return;
+    }
+    
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Set Japanese font (Note: Basic jsPDF doesn't support Japanese. This is a placeholder)
+    // For production, you would need to add Japanese font support
+    
+    const title = type === 'quote' ? '見積書' : '請求書';
+    const number = type === 'quote' ? data.quote_number : data.invoice_number;
+    const issueDate = type === 'quote' ? data.issue_date : data.issue_date;
+    
+    // Title
+    doc.setFontSize(24);
+    doc.text(title, 105, 20, { align: 'center' });
+    
+    // Document number and date
+    doc.setFontSize(12);
+    doc.text(`${type === 'quote' ? '見積番号' : '請求番号'}: ${number}`, 20, 40);
+    doc.text(`発行日: ${issueDate}`, 20, 48);
+    
+    if (type === 'quote') {
+        doc.text(`有効期限: ${data.expiry_date}`, 20, 56);
+    } else {
+        doc.text(`支払期限: ${data.due_date}`, 20, 56);
+    }
+    
+    // Company info
+    doc.setFontSize(10);
+    doc.text(COMPANY_INFO.name, 140, 40);
+    doc.text(COMPANY_INFO.representative, 140, 46);
+    doc.text(COMPANY_INFO.address, 140, 52);
+    doc.text(`TEL: ${COMPANY_INFO.phone}`, 140, 58);
+    
+    // Customer info
+    doc.setFontSize(12);
+    doc.text('お客様:', 20, 75);
+    doc.text(data.customers?.name || '', 20, 82);
+    if (data.customers?.company) {
+        doc.text(data.customers.company, 20, 89);
+    }
+    
+    // Items table
+    let yPos = 110;
+    doc.setFontSize(10);
+    doc.text('品目', 20, yPos);
+    doc.text('数量', 90, yPos);
+    doc.text('単価', 120, yPos);
+    doc.text('金額', 160, yPos);
+    
+    yPos += 5;
+    doc.line(20, yPos, 190, yPos);
+    
+    yPos += 8;
+    
+    if (data.items && Array.isArray(data.items)) {
+        data.items.forEach(item => {
+            doc.text(item.description || '', 20, yPos);
+            doc.text(String(item.quantity || 0), 90, yPos);
+            doc.text(`¥${(item.price || 0).toLocaleString()}`, 120, yPos);
+            doc.text(`¥${((item.quantity * item.price) || 0).toLocaleString()}`, 160, yPos);
+            yPos += 8;
+        });
+    }
+    
+    yPos += 5;
+    doc.line(20, yPos, 190, yPos);
+    
+    // Totals
+    yPos += 10;
+    doc.text('小計:', 130, yPos);
+    doc.text(`¥${(data.subtotal || 0).toLocaleString()}`, 160, yPos);
+    
+    yPos += 8;
+    doc.text('消費税:', 130, yPos);
+    doc.text(`¥${(data.tax || 0).toLocaleString()}`, 160, yPos);
+    
+    yPos += 8;
+    doc.setFontSize(14);
+    doc.text('合計:', 130, yPos);
+    doc.text(`¥${(data.total || 0).toLocaleString()}`, 160, yPos);
+    
+    // Bank info for invoices
+    if (type === 'invoice') {
+        yPos += 15;
+        doc.setFontSize(10);
+        doc.text('振込先:', 20, yPos);
+        yPos += 6;
+        doc.text(`${COMPANY_INFO.bank.name}`, 20, yPos);
+        yPos += 6;
+        doc.text(`${COMPANY_INFO.bank.branch}`, 20, yPos);
+        yPos += 6;
+        doc.text(`口座番号: ${COMPANY_INFO.bank.accountNumber}`, 20, yPos);
+        yPos += 6;
+        doc.text(`名義: ${COMPANY_INFO.bank.accountName}`, 20, yPos);
+        yPos += 10;
+        doc.setFontSize(8);
+        doc.text('※振込手数料は振込人の負担とさせていただきます', 20, yPos);
+    }
+    
+    // Save PDF
+    doc.save(`${number}.pdf`);
+    showNotification('PDFを生成しました', 'success');
 }
 
 // Reports
@@ -1527,25 +2224,3 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
-
-// PDF Generation Placeholders
-function viewQuotePDF(id) {
-    showNotification('PDF生成機能は開発中です', 'info');
-}
-
-function viewInvoicePDF(id) {
-    showNotification('PDF生成機能は開発中です', 'info');
-}
-
-function convertToInvoice(quoteId) {
-    showNotification('見積書→請求書変換機能は開発中です', 'info');
-}
-
-// Item management placeholders
-function addQuoteItem() {
-    showNotification('明細追加機能は開発中です', 'info');
-}
-
-function addInvoiceItem() {
-    showNotification('明細追加機能は開発中です', 'info');
-}
