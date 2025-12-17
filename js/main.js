@@ -1286,6 +1286,24 @@ async function deleteInvoice(id) {
     }
     
     try {
+        // Get invoice details first
+        const { data: invoice, error: fetchError } = await db
+            .from('invoices')
+            .select('invoice_number')
+            .eq('id', id)
+            .single();
+        
+        if (fetchError) throw fetchError;
+        
+        // Delete related journal entries
+        if (invoice && invoice.invoice_number) {
+            await db
+                .from('journal_entries')
+                .delete()
+                .ilike('description', `%${invoice.invoice_number}%`);
+        }
+        
+        // Delete invoice
         const { error } = await db
             .from('invoices')
             .delete()
@@ -1293,8 +1311,9 @@ async function deleteInvoice(id) {
         
         if (error) throw error;
         
-        showNotification('請求書を削除しました', 'success');
+        showNotification('請求書と関連する仕訳を削除しました', 'success');
         displayInvoices();
+        displayJournalEntries();
         updateDashboard();
     } catch (error) {
         console.error('Error deleting invoice:', error);
