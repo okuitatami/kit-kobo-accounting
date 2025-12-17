@@ -1913,7 +1913,7 @@ function generatePrintableDocument(data, type) {
                 </div>
                 <div class="company-info">
                     <p><strong>${COMPANY_INFO.name}</strong></p>
-                    <p>${COMPANY_INFO.representative}</p>
+                    <p>代表 ${COMPANY_INFO.representative}</p>
                     <p>${COMPANY_INFO.address}</p>
                     <p>TEL: ${COMPANY_INFO.phone}</p>
                 </div>
