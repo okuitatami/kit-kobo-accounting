@@ -9,16 +9,13 @@ const SUPABASE_ANON_KEY = typeof window !== 'undefined' && window.SUPABASE_ANON_
     : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpYXZmY3llY3BpZWpoZmFyZnhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4NjkzMzUsImV4cCI6MjA4MTQ0NTMzNX0.kPHcu8iWicBj0StrK72xvzL2XgAuXQtd9LUzIPsldIw';
 
 // Initialize Supabase client
-// Avoid redeclaration error by checking if already exists
-if (typeof window.supabaseClient === 'undefined') {
-    window.supabaseClient = (function() {
-        if (typeof window.supabase !== 'undefined') {
-            return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        }
-        return null;
-    })();
-}
-const supabase = window.supabaseClient;
+// Use 'db' instead of 'supabase' to avoid naming conflicts
+const db = (function() {
+    if (typeof window.supabase !== 'undefined') {
+        return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+    return null;
+})();
 
 // Company Information
 const COMPANY_INFO = {
@@ -60,7 +57,7 @@ let csvParsedData = [];
 // Initialize App
 document.addEventListener('DOMContentLoaded', async () => {
     // Check Supabase connection
-    if (!supabase || SUPABASE_URL === 'YOUR_SUPABASE_URL_HERE') {
+    if (!db || SUPABASE_URL === 'YOUR_SUPABASE_URL_HERE') {
         showNotification('⚠️ Supabaseの設定が必要です。環境変数を設定してください。', 'warning');
     }
 
@@ -511,10 +508,10 @@ async function loadAllData() {
 
 // Customers
 async function loadCustomers() {
-    if (!supabase) return [];
+    if (!db) return [];
     
     try {
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('customers')
             .select('*')
             .order('created_at', { ascending: false });
@@ -566,7 +563,7 @@ function updateCustomerSelects(customers) {
 async function handleCustomerSubmit(e) {
     e.preventDefault();
     
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
@@ -580,7 +577,7 @@ async function handleCustomerSubmit(e) {
     };
     
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('customers')
             .insert([customerData]);
         
@@ -623,13 +620,13 @@ async function displayCustomers() {
 async function deleteCustomer(id) {
     if (!confirm('この顧客を削除しますか？')) return;
     
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
     
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('customers')
             .delete()
             .eq('id', id);
@@ -647,10 +644,10 @@ async function deleteCustomer(id) {
 
 // Services
 async function loadServices() {
-    if (!supabase) return [];
+    if (!db) return [];
     
     try {
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('services')
             .select('*')
             .order('created_at', { ascending: false });
@@ -667,7 +664,7 @@ async function loadServices() {
 async function handleServiceSubmit(e) {
     e.preventDefault();
     
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
@@ -681,7 +678,7 @@ async function handleServiceSubmit(e) {
     };
     
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('services')
             .insert([serviceData]);
         
@@ -723,13 +720,13 @@ async function displayServices() {
 async function deleteService(id) {
     if (!confirm('このサービスを削除しますか？')) return;
     
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
     
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('services')
             .delete()
             .eq('id', id);
@@ -746,10 +743,10 @@ async function deleteService(id) {
 
 // Journal Entries
 async function loadJournalEntries() {
-    if (!supabase) return [];
+    if (!db) return [];
     
     try {
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('journal_entries')
             .select('*')
             .order('date', { ascending: false });
@@ -766,7 +763,7 @@ async function loadJournalEntries() {
 async function handleJournalSubmit(e) {
     e.preventDefault();
     
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
@@ -790,7 +787,7 @@ async function handleJournalSubmit(e) {
     };
     
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('journal_entries')
             .insert([entryData]);
         
@@ -862,13 +859,13 @@ async function displayJournalEntries() {
 async function deleteJournalEntry(id) {
     if (!confirm('この仕訳を削除しますか？')) return;
     
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
     
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('journal_entries')
             .delete()
             .eq('id', id);
@@ -886,10 +883,10 @@ async function deleteJournalEntry(id) {
 
 // Quotations
 async function loadQuotations() {
-    if (!supabase) return [];
+    if (!db) return [];
     
     try {
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('quotations')
             .select('*, customers(*)')
             .order('created_at', { ascending: false });
@@ -906,7 +903,7 @@ async function loadQuotations() {
 async function handleQuotationSubmit(e) {
     e.preventDefault();
     
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
@@ -955,7 +952,7 @@ async function handleQuotationSubmit(e) {
     };
     
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('quotations')
             .insert([quotationData]);
         
@@ -1007,13 +1004,13 @@ async function displayQuotations() {
 async function deleteQuotation(id) {
     if (!confirm('この見積書を削除しますか？')) return;
     
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
     
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('quotations')
             .delete()
             .eq('id', id);
@@ -1030,14 +1027,14 @@ async function deleteQuotation(id) {
 
 // Convert Quote to Invoice
 async function convertToInvoice(quoteId) {
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
     
     try {
         // Get quotation data
-        const { data: quote, error: quoteError } = await supabase
+        const { data: quote, error: quoteError } = await db
             .from('quotations')
             .select('*')
             .eq('id', quoteId)
@@ -1069,7 +1066,7 @@ async function convertToInvoice(quoteId) {
             status: 'unpaid'
         };
         
-        const { error: invoiceError } = await supabase
+        const { error: invoiceError } = await db
             .from('invoices')
             .insert([invoiceData]);
         
@@ -1092,10 +1089,10 @@ async function convertToInvoice(quoteId) {
 
 // Invoices
 async function loadInvoices() {
-    if (!supabase) return [];
+    if (!db) return [];
     
     try {
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('invoices')
             .select('*, customers(*)')
             .order('created_at', { ascending: false });
@@ -1112,7 +1109,7 @@ async function loadInvoices() {
 async function handleInvoiceSubmit(e) {
     e.preventDefault();
     
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
@@ -1162,7 +1159,7 @@ async function handleInvoiceSubmit(e) {
     };
     
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('invoices')
             .insert([invoiceData]);
         
@@ -1200,7 +1197,7 @@ async function createInvoiceJournalEntry(invoice) {
     };
     
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('journal_entries')
             .insert([entryData]);
         
@@ -1239,14 +1236,14 @@ async function displayInvoices() {
 }
 
 async function markAsPaid(id) {
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
     
     try {
         // Update invoice status
-        const { data: invoice, error: updateError } = await supabase
+        const { data: invoice, error: updateError } = await db
             .from('invoices')
             .update({ status: 'paid' })
             .eq('id', id)
@@ -1265,7 +1262,7 @@ async function markAsPaid(id) {
             description: `入金 ${invoice.invoice_number}`
         };
         
-        const { error: journalError } = await supabase
+        const { error: journalError } = await db
             .from('journal_entries')
             .insert([entryData]);
         
@@ -1283,13 +1280,13 @@ async function markAsPaid(id) {
 async function deleteInvoice(id) {
     if (!confirm('この請求書を削除しますか？')) return;
     
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
     
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('invoices')
             .delete()
             .eq('id', id);
@@ -1310,10 +1307,10 @@ async function deleteInvoice(id) {
 // ===============================
 
 async function loadRecurringRevenue() {
-    if (!supabase) return [];
+    if (!db) return [];
     
     try {
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('recurring_revenue')
             .select('*, customers(*)')
             .order('created_at', { ascending: false });
@@ -1334,7 +1331,7 @@ async function loadRecurringRevenue() {
 async function handleRecurringSubmit(e) {
     e.preventDefault();
     
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
@@ -1351,7 +1348,7 @@ async function handleRecurringSubmit(e) {
     };
     
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('recurring_revenue')
             .insert([recurringData]);
         
@@ -1419,7 +1416,7 @@ async function pauseRecurring(id) {
     if (!confirm('この契約を一時停止しますか？')) return;
     
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('recurring_revenue')
             .update({ status: 'paused' })
             .eq('id', id);
@@ -1437,7 +1434,7 @@ async function pauseRecurring(id) {
 
 async function resumeRecurring(id) {
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('recurring_revenue')
             .update({ status: 'active' })
             .eq('id', id);
@@ -1457,7 +1454,7 @@ async function cancelRecurring(id) {
     if (!confirm('この契約を解約しますか？')) return;
     
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('recurring_revenue')
             .update({ status: 'cancelled' })
             .eq('id', id);
@@ -1501,7 +1498,7 @@ async function generateMonthlyJournals() {
             };
         });
         
-        const { error } = await supabase
+        const { error } = await db
             .from('journal_entries')
             .insert(entries);
         
@@ -1696,14 +1693,14 @@ function displayRecentEntries(entries) {
 // ===============================
 
 async function viewQuotePDF(id) {
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
     
     try {
         // Get quotation data
-        const { data: quote, error } = await supabase
+        const { data: quote, error } = await db
             .from('quotations')
             .select('*, customers(*)')
             .eq('id', id)
@@ -1719,14 +1716,14 @@ async function viewQuotePDF(id) {
 }
 
 async function viewInvoicePDF(id) {
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
     
     try {
         // Get invoice data
-        const { data: invoice, error } = await supabase
+        const { data: invoice, error } = await db
             .from('invoices')
             .select('*, customers(*)')
             .eq('id', id)
@@ -2317,7 +2314,7 @@ function updateCSVRow(index, field, value) {
 }
 
 async function importCSVData() {
-    if (!supabase) {
+    if (!db) {
         showNotification('Supabaseが設定されていません', 'error');
         return;
     }
@@ -2339,7 +2336,7 @@ async function importCSVData() {
             description: row.description
         }));
         
-        const { error } = await supabase
+        const { error } = await db
             .from('journal_entries')
             .insert(entries);
         
