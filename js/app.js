@@ -9,10 +9,12 @@ const SUPABASE_ANON_KEY = typeof window !== 'undefined' && window.SUPABASE_ANON_
     : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpYXZmY3llY3BpZWpoZmFyZnhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4NjkzMzUsImV4cCI6MjA4MTQ0NTMzNX0.kPHcu8iWicBj0StrK72xvzL2XgAuXQtd9LUzIPsldIw';
 
 // Initialize Supabase client
-let supabase;
-if (typeof window.supabase !== 'undefined') {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-}
+const supabase = (function() {
+    if (typeof window.supabase !== 'undefined') {
+        return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+    return null;
+})();
 
 // Company Information
 const COMPANY_INFO = {
