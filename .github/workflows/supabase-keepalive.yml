@@ -1,0 +1,50 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    # 毎週月曜日 9:00 (UTC) = 日本時間 月曜日 18:00
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Ping Supabase Database
+        run: |
+          echo "Pinging Supabase to prevent auto-pause..."
+          
+          # Customersテーブルにアクセス
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
+            "https://ciavfcyecpiejhfarfxl.supabase.co/rest/v1/customers?limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Supabase is active and responding"
+            echo "Response: $(echo "$RESPONSE" | head -n-1)"
+          else
+            echo "⚠️ Unexpected response code: $HTTP_CODE"
+            exit 1
+          fi
+      
+      - name: Ping Application
+        run: |
+          echo "Pinging application to ensure it's live..."
+          
+          APP_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://kit-kobo-accounting.vercel.app/")
+          
+          if [ "$APP_RESPONSE" = "200" ]; then
+            echo "✅ Application is responding"
+          else
+            echo "⚠️ Application response code: $APP_RESPONSE"
+          fi
+      
+      - name: Report Success
+        run: |
+          echo "🎉 Keep-alive completed successfully!"
+          echo "Timestamp: $(date)"
