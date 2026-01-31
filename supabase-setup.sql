@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   discount NUMERIC DEFAULT 0,
   tax NUMERIC,
   total NUMERIC,
-  status TEXT DEFAULT 'unpaid' CHECK (status IN ('unpaid', 'paid')),
+  status TEXT DEFAULT 'unpaid' CHECK (status IN ('unpaid', 'paid', 'archived')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

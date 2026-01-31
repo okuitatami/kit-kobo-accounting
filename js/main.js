@@ -160,6 +160,22 @@ function initializeYearSelects() {
         option.textContent = `${month}月`;
         monthFilter.appendChild(option);
     }
+    
+    // Invoice and Quotation year filters
+    const invoiceYearFilter = document.getElementById('invoice-year-filter');
+    const quoteYearFilter = document.getElementById('quote-year-filter');
+    
+    for (let year = currentYear - 5; year <= currentYear + 1; year++) {
+        const invoiceOption = document.createElement('option');
+        invoiceOption.value = year;
+        invoiceOption.textContent = `${year}年`;
+        invoiceYearFilter.appendChild(invoiceOption);
+        
+        const quoteOption = document.createElement('option');
+        quoteOption.value = year;
+        quoteOption.textContent = `${year}年`;
+        quoteYearFilter.appendChild(quoteOption);
+    }
 }
 
 // Initialize Date Fields
@@ -976,18 +992,48 @@ async function handleQuotationSubmit(e) {
 
 async function displayQuotations() {
     const quotations = await loadQuotations();
-    const list = document.getElementById('quotation-list');
-    
-    if (quotations.length === 0) {
-        list.innerHTML = '<p class="info-text">見積書がありません</p>';
+    filterQuotations(quotations);
+}
+
+function filterQuotations(quotations = null) {
+    if (!quotations) {
+        displayQuotations();
         return;
     }
     
-    list.innerHTML = quotations.map(quote => `
+    const list = document.getElementById('quotation-list');
+    const yearFilter = document.getElementById('quote-year-filter').value;
+    const searchText = document.getElementById('quote-search').value.toLowerCase();
+    
+    let filtered = quotations;
+    
+    // Year filter
+    if (yearFilter) {
+        filtered = filtered.filter(quote => {
+            const year = new Date(quote.issue_date).getFullYear();
+            return year === parseInt(yearFilter);
+        });
+    }
+    
+    // Search filter
+    if (searchText) {
+        filtered = filtered.filter(quote => {
+            const customerName = (quote.customers?.name || '').toLowerCase();
+            const customerCompany = (quote.customers?.company || '').toLowerCase();
+            return customerName.includes(searchText) || customerCompany.includes(searchText);
+        });
+    }
+    
+    if (filtered.length === 0) {
+        list.innerHTML = '<p class="info-text">該当する見積書がありません</p>';
+        return;
+    }
+    
+    list.innerHTML = filtered.map(quote => `
         <div class="data-item">
             <div class="data-item-info">
                 <strong>${quote.quote_number}</strong>
-                <br><span>顧客: ${quote.customers?.name || '不明'}</span>
+                <br><span>顧客: ${quote.customers?.company || quote.customers?.name || '不明'}</span>
                 <br><span>発行日: ${quote.issue_date}</span>
                 <br><span>有効期限: ${quote.expiry_date}</span>
                 <br><span>合計: ¥${(quote.total || 0).toLocaleString()}</span>
@@ -1209,19 +1255,65 @@ async function createInvoiceJournalEntry(invoice) {
 
 async function displayInvoices() {
     const invoices = await loadInvoices();
-    const list = document.getElementById('invoice-list');
-    
-    if (invoices.length === 0) {
-        list.innerHTML = '<p class="info-text">請求書がありません</p>';
+    filterInvoices(invoices);
+}
+
+function filterInvoices(invoices = null) {
+    if (!invoices) {
+        displayInvoices();
         return;
     }
     
-    list.innerHTML = invoices.map(invoice => `
+    const list = document.getElementById('invoice-list');
+    const yearFilter = document.getElementById('invoice-year-filter').value;
+    const statusFilter = document.getElementById('invoice-status-filter').value;
+    const searchText = document.getElementById('invoice-search').value.toLowerCase();
+    
+    let filtered = invoices;
+    
+    // Year filter
+    if (yearFilter) {
+        filtered = filtered.filter(inv => {
+            const year = new Date(inv.issue_date).getFullYear();
+            return year === parseInt(yearFilter);
+        });
+    }
+    
+    // Status filter
+    if (statusFilter) {
+        filtered = filtered.filter(inv => inv.status === statusFilter);
+    }
+    
+    // Search filter
+    if (searchText) {
+        filtered = filtered.filter(inv => {
+            const customerName = (inv.customers?.name || '').toLowerCase();
+            const customerCompany = (inv.customers?.company || '').toLowerCase();
+            return customerName.includes(searchText) || customerCompany.includes(searchText);
+        });
+    }
+    
+    if (filtered.length === 0) {
+        list.innerHTML = '<p class="info-text">該当する請求書がありません</p>';
+        return;
+    }
+    
+    list.innerHTML = filtered.map(invoice => {
+        let statusBadge = '';
+        if (invoice.status === 'paid') {
+            statusBadge = '<span class="badge-success">支払済</span>';
+        } else if (invoice.status === 'archived') {
+            statusBadge = '<span class="badge-secondary">アーカイブ</span>';
+        } else {
+            statusBadge = '<span class="badge-danger">未払</span>';
+        }
+        
+        return `
         <div class="data-item">
             <div class="data-item-info">
                 <strong>${invoice.invoice_number}</strong>
-                ${invoice.status === 'paid' ? '<span class="badge-success">支払済</span>' : '<span class="badge-danger">未払</span>'}
-                <br><span>顧客: ${invoice.customers?.name || '不明'}</span>
+                ${statusBadge}
+                <br><span>顧客: ${invoice.customers?.company || invoice.customers?.name || '不明'}</span>
                 <br><span>発行日: ${invoice.issue_date}</span>
                 <br><span>支払期限: ${invoice.due_date}</span>
                 <br><span>合計: ¥${(invoice.total || 0).toLocaleString()}</span>
@@ -1229,10 +1321,12 @@ async function displayInvoices() {
             <div class="data-item-actions">
                 <button class="btn btn-secondary" onclick="viewInvoicePDF('${invoice.id}')">📄 印刷/PDF</button>
                 ${invoice.status === 'unpaid' ? `<button class="btn btn-success" onclick="markAsPaid('${invoice.id}')">支払済にする</button>` : ''}
+                ${invoice.status !== 'archived' ? `<button class="btn" onclick="archiveInvoice('${invoice.id}')">📦 アーカイブ</button>` : ''}
+                ${invoice.status === 'archived' ? `<button class="btn" onclick="unarchiveInvoice('${invoice.id}')">📤 アーカイブ解除</button>` : ''}
                 <button class="btn btn-danger" onclick="deleteInvoice('${invoice.id}')">削除</button>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 async function markAsPaid(id) {
@@ -1274,6 +1368,54 @@ async function markAsPaid(id) {
     } catch (error) {
         console.error('Error marking as paid:', error);
         showNotification('更新に失敗しました', 'error');
+    }
+}
+
+async function archiveInvoice(id) {
+    if (!confirm('この請求書をアーカイブしますか？')) return;
+    
+    if (!db) {
+        showNotification('Supabaseが設定されていません', 'error');
+        return;
+    }
+    
+    try {
+        const { error } = await db
+            .from('invoices')
+            .update({ status: 'archived' })
+            .eq('id', id);
+        
+        if (error) throw error;
+        
+        showNotification('請求書をアーカイブしました', 'success');
+        displayInvoices();
+    } catch (error) {
+        console.error('Error archiving invoice:', error);
+        showNotification('アーカイブに失敗しました', 'error');
+    }
+}
+
+async function unarchiveInvoice(id) {
+    if (!confirm('この請求書のアーカイブを解除しますか？')) return;
+    
+    if (!db) {
+        showNotification('Supabaseが設定されていません', 'error');
+        return;
+    }
+    
+    try {
+        const { error } = await db
+            .from('invoices')
+            .update({ status: 'unpaid' })
+            .eq('id', id);
+        
+        if (error) throw error;
+        
+        showNotification('アーカイブを解除しました', 'success');
+        displayInvoices();
+    } catch (error) {
+        console.error('Error unarchiving invoice:', error);
+        showNotification('アーカイブ解除に失敗しました', 'error');
     }
 }
 

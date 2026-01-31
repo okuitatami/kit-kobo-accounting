@@ -423,6 +423,15 @@ main {
     margin-left: 10px;
 }
 
+.badge-secondary {
+    background: #6c757d;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.8rem;
+    margin-left: 10px;
+}
+
 /* Filter Controls */
 .filter-controls {
     margin-bottom: 20px;

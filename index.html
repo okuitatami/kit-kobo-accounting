@@ -209,6 +209,23 @@
 
                 <div class="form-card">
                     <h3>見積書一覧</h3>
+                    
+                    <!-- 検索・フィルター -->
+                    <div class="filter-controls" style="margin-bottom: 20px;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="quote-year-filter">年度</label>
+                                <select id="quote-year-filter" onchange="filterQuotations()">
+                                    <option value="">すべて</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="quote-search">顧客検索</label>
+                                <input type="text" id="quote-search" placeholder="顧客名または会社名で検索" oninput="filterQuotations()">
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div id="quotation-list"></div>
                 </div>
             </div>
@@ -280,6 +297,32 @@
 
                 <div class="form-card">
                     <h3>請求書一覧</h3>
+                    
+                    <!-- 検索・フィルター -->
+                    <div class="filter-controls" style="margin-bottom: 20px;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="invoice-year-filter">年度</label>
+                                <select id="invoice-year-filter" onchange="filterInvoices()">
+                                    <option value="">すべて</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="invoice-status-filter">ステータス</label>
+                                <select id="invoice-status-filter" onchange="filterInvoices()">
+                                    <option value="">すべて</option>
+                                    <option value="unpaid">未払い</option>
+                                    <option value="paid">支払済</option>
+                                    <option value="archived">アーカイブ</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="invoice-search">顧客検索</label>
+                                <input type="text" id="invoice-search" placeholder="顧客名または会社名で検索" oninput="filterInvoices()">
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div id="invoice-list"></div>
                 </div>
             </div>
