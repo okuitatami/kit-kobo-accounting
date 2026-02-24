@@ -40,7 +40,7 @@ const ACCOUNTS = {
         '買掛金', '未払金', '前受金', '預り金', '事業主貸'
     ],
     revenue: [
-        '売上高'
+        '売上高', '受取利息'
     ],
     expenses: [
         '仕入高', '外注費', '消耗品費', '通信費', '旅費交通費',
@@ -2261,12 +2261,17 @@ function parseCSV() {
         const lines = csvText.trim().split('\n');
         const headers = parseCSVLine(lines[0]);
         
-        // Validate headers
-        const expectedHeaders = ['番号', '明細区分', '取扱日付', '起算日', 'お支払金額', 'お預り金額', '取引区分', '残高', '摘要'];
-        const headersMatch = headers.every((h, i) => h === expectedHeaders[i]);
+        // Detect bank format
+        let bankFormat = 'unknown';
+        const aozoraHeaders = ['番号', '取引店', '起算日', '年月日', 'お支払金額', 'お預り金額', '入出金区分', '残高', '摘要', '備考'];
+        const smtbHeaders = ['番号', '明細区分', '取扱日付', '起算日', 'お支払金額', 'お預り金額', '取引区分', '残高', '摘要'];
         
-        if (!headersMatch) {
-            showNotification('CSVフォーマットが正しくありません', 'error');
+        if (headers.length >= 10 && headers.every((h, i) => h === aozoraHeaders[i])) {
+            bankFormat = 'aozora';
+        } else if (headers.length >= 9 && headers.every((h, i) => h === smtbHeaders[i])) {
+            bankFormat = 'smtb';
+        } else {
+            showNotification('CSVフォーマットが正しくありません。対応銀行: あおぞら銀行、三井住友銀行、ゆうちょ銀行', 'error');
             return;
         }
         
@@ -2274,52 +2279,113 @@ function parseCSV() {
         csvParsedData = [];
         for (let i = 1; i < lines.length; i++) {
             const values = parseCSVLine(lines[i]);
-            if (values.length < 9) continue;
+            if (values.length < 8) continue;
             
-            const dateStr = values[2]; // 取扱日付
-            const paymentStr = values[4]; // お支払金額
-            const depositStr = values[5]; // お預り金額
-            const typeStr = values[6]; // 取引区分
-            const description = values[8]; // 摘要
+            let dateStr, paymentStr, depositStr, typeStr, description;
             
-            // Parse date (format: "10月20日")
-            const dateMatch = dateStr.match(/(\d+)月(\d+)日/);
-            if (!dateMatch) continue;
-            
-            const month = parseInt(dateMatch[1]);
-            const day = parseInt(dateMatch[2]);
-            const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            
-            // Parse amounts
-            const paymentAmount = parseAmount(paymentStr);
-            const depositAmount = parseAmount(depositStr);
-            
-            // Determine transaction type and suggest account
-            let debitAccount, creditAccount, amount;
-            
-            if (depositAmount > 0) {
-                // Deposit (入金)
-                amount = depositAmount;
-                debitAccount = '普通預金';
-                creditAccount = suggestAccount(description, 'credit');
-            } else if (paymentAmount > 0) {
-                // Payment (出金)
-                amount = paymentAmount;
-                debitAccount = suggestAccount(description, 'debit');
-                creditAccount = '普通預金';
-            } else {
-                continue;
+            if (bankFormat === 'aozora') {
+                // あおぞら銀行フォーマット
+                dateStr = values[3]; // 年月日
+                paymentStr = values[4]; // お支払金額
+                depositStr = values[5]; // お預り金額
+                typeStr = values[6]; // 入出金区分
+                description = values[8]; // 摘要
+                
+                // Parse date (format: "2025年12月20日")
+                const dateMatch = dateStr.match(/(\d{4})年(\d+)月(\d+)日/);
+                if (!dateMatch) continue;
+                
+                const parsedYear = parseInt(dateMatch[1]);
+                const month = parseInt(dateMatch[2]);
+                const day = parseInt(dateMatch[3]);
+                const date = `${parsedYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                
+                // Parse amounts
+                const paymentAmount = parseAmount(paymentStr);
+                const depositAmount = parseAmount(depositStr);
+                
+                // Determine transaction type and suggest account
+                let debitAccount, creditAccount, amount;
+                
+                if (depositAmount > 0) {
+                    // Deposit (入金)
+                    amount = depositAmount;
+                    debitAccount = '普通預金';
+                    
+                    // Detect transaction type
+                    if (typeStr.includes('振込') || description.includes('振込')) {
+                        creditAccount = '売上高';
+                    } else if (typeStr.includes('利息')) {
+                        creditAccount = '受取利息';
+                    } else {
+                        creditAccount = suggestAccount(description, 'credit');
+                    }
+                } else if (paymentAmount > 0) {
+                    // Payment (出金)
+                    amount = paymentAmount;
+                    debitAccount = suggestAccount(description, 'debit');
+                    creditAccount = '普通預金';
+                } else {
+                    continue;
+                }
+                
+                csvParsedData.push({
+                    date,
+                    debitAccount,
+                    creditAccount,
+                    amount,
+                    description,
+                    type: typeStr,
+                    selected: true
+                });
+                
+            } else if (bankFormat === 'smtb') {
+                // 三井住友銀行/ゆうちょ銀行フォーマット
+                dateStr = values[2]; // 取扱日付
+                paymentStr = values[4]; // お支払金額
+                depositStr = values[5]; // お預り金額
+                typeStr = values[6]; // 取引区分
+                description = values[8]; // 摘要
+                
+                // Parse date (format: "10月20日")
+                const dateMatch = dateStr.match(/(\d+)月(\d+)日/);
+                if (!dateMatch) continue;
+                
+                const month = parseInt(dateMatch[1]);
+                const day = parseInt(dateMatch[2]);
+                const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                
+                // Parse amounts
+                const paymentAmount = parseAmount(paymentStr);
+                const depositAmount = parseAmount(depositStr);
+                
+                // Determine transaction type and suggest account
+                let debitAccount, creditAccount, amount;
+                
+                if (depositAmount > 0) {
+                    // Deposit (入金)
+                    amount = depositAmount;
+                    debitAccount = '普通預金';
+                    creditAccount = suggestAccount(description, 'credit');
+                } else if (paymentAmount > 0) {
+                    // Payment (出金)
+                    amount = paymentAmount;
+                    debitAccount = suggestAccount(description, 'debit');
+                    creditAccount = '普通預金';
+                } else {
+                    continue;
+                }
+                
+                csvParsedData.push({
+                    date,
+                    debitAccount,
+                    creditAccount,
+                    amount,
+                    description,
+                    type: typeStr,
+                    selected: true
+                });
             }
-            
-            csvParsedData.push({
-                date,
-                debitAccount,
-                creditAccount,
-                amount,
-                description,
-                type: typeStr,
-                selected: true
-            });
         }
         
         displayCSVPreview();
@@ -2365,8 +2431,9 @@ function suggestAccount(description, type) {
         'ATM': '事業主貸',
         '引出': '事業主貸',
         '現金': '事業主貸',
-        '振込': type === 'credit' ? '売掛金' : '事業主貸',
-        '振替': type === 'credit' ? '売掛金' : '事業主貸',
+        '利息': type === 'credit' ? '受取利息' : '雑費',
+        '振込': type === 'credit' ? '売上高' : '事業主貸',
+        '振替': type === 'credit' ? '売上高' : '事業主貸',
         'NTT': '通信費',
         'ドコモ': '通信費',
         'ソフトバンク': '通信費',
