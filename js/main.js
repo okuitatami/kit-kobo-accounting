@@ -2261,16 +2261,38 @@ function parseCSV() {
         const lines = csvText.trim().split('\n');
         const headers = parseCSVLine(lines[0]);
         
-        // Detect bank format
-        let bankFormat = 'unknown';
-        const aozoraHeaders = ['番号', '取引店', '起算日', '年月日', 'お支払金額', 'お預り金額', '入出金区分', '残高', '摘要', '備考'];
-        const smtbHeaders = ['番号', '明細区分', '取扱日付', '起算日', 'お支払金額', 'お預り金額', '取引区分', '残高', '摘要'];
+        // Debug: Log detected headers
+        console.log('CSV Headers detected:', headers);
+        console.log('Header count:', headers.length);
         
-        if (headers.length >= 10 && headers.every((h, i) => h === aozoraHeaders[i])) {
+        // Detect bank format with flexible matching
+        let bankFormat = 'unknown';
+        
+        // Check あおぞら銀行 (10 columns)
+        // Expected: ['番号', '取引店', '起算日', '年月日', 'お支払金額', 'お預り金額', '入出金区分', '残高', '摘要', '備考']
+        const hasAozoraPattern = headers.length === 10 && 
+            headers[0].includes('番号') &&
+            headers[3].includes('月') && // 年月日
+            headers[4].includes('支払') &&
+            headers[5].includes('預り') &&
+            headers[6].includes('出金');
+        
+        // Check 三井住友銀行/ゆうちょ銀行 (9 columns)
+        // Expected: ['番号', '明細区分', '取扱日付', '起算日', 'お支払金額', 'お預り金額', '取引区分', '残高', '摘要']
+        const hasSmtbPattern = headers.length === 9 &&
+            headers[0].includes('番号') &&
+            headers[2].includes('日') && // 取扱日付
+            headers[4].includes('支払') &&
+            headers[5].includes('預り');
+        
+        if (hasAozoraPattern) {
             bankFormat = 'aozora';
-        } else if (headers.length >= 9 && headers.every((h, i) => h === smtbHeaders[i])) {
+            console.log('✅ あおぞら銀行フォーマットを検出');
+        } else if (hasSmtbPattern) {
             bankFormat = 'smtb';
+            console.log('✅ 三井住友銀行/ゆうちょ銀行フォーマットを検出');
         } else {
+            console.error('❌ 未対応のCSVフォーマット:', headers);
             showNotification('CSVフォーマットが正しくありません。対応銀行: あおぞら銀行、三井住友銀行、ゆうちょ銀行', 'error');
             return;
         }
